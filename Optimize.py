@@ -59,7 +59,9 @@ class Plotter:
         self.plot(np.array([x1,x2]), np.array([y1, y2]), color = 'blue')
 
 class Optimizer(Plotter):
-    def __init__(self, lr=0.01, MAX_ITERS = None):
+    def __init__(self, lr=0.01, MAX_ITERS = None, write = True, root = "output"):
+        self.root = root
+        self.write = write
         self.lr = lr
         self.x0 = None
         self.cur = None
@@ -70,6 +72,8 @@ class Optimizer(Plotter):
         self.RESOLUTION = 100
 
     def _pre_loop(self,f,xl,xr,x0):
+        self.xl = xl
+        self.xr = xr
         x = np.linspace(xl,xr,self.RESOLUTION)
         if x0 is None:
             x0 = np.random.choice(x)
@@ -78,51 +82,59 @@ class Optimizer(Plotter):
         self.x0 = x0
         self.x_c = x0
         self.set_data(x, f)
-        self.dfx_c , dfx2= self.diff(self.f, self.x_c)
+        self.dfx_c , self.df2x_c= self.diff(self.f, self.x_c)
         
     def run(self, f, xl, xr, x0 = None, ALGORITHM = 'SGD'):
         self._pre_loop(f, xl, xr, x0)
-        fig = plt.figure()
-        plt.title(f"Learning rate: {self.lr}")
         cond = True
         k = 1
-        writer = PillowWriter(fps = 5)
-        with writer.saving(fig, f"output/plot{self.lr}.gif",self.MAX_ITERS):
+        if self.write:
+            fig = plt.figure()
+            plt.title(f"Learning rate: {self.lr}")
+            writer = PillowWriter(fps = 5)
+            with writer.saving(fig, f"{self.root}/plot{self.lr}.gif",self.MAX_ITERS):
+                while cond and k<self.MAX_ITERS:
+                    # fig = plt.figure()
+                    self.plot_iter()
+                    plt.title(f"Learning rate: {self.lr}")
+                    writer.grab_frame()
+                    plt.clf()
+                    cond = self.step()
+                    k+=1
+        else:
             while cond and k<self.MAX_ITERS:
-                # fig = plt.figure()
-                self.plot_iter()
-                plt.title(f"Learning rate: {self.lr}")
-                writer.grab_frame()
-                plt.clf()
                 cond = self.step()
                 k+=1
 
-    @abstractmethod
-    def step(self):
-        pass
+        # self.x_star = self.cur
+        # self.y_star = self.f(self.x_star)
     def diff(self, f, x0):
         EPS = 1e-6
         cmp = f(x0+EPS*1j)
         return np.imag(cmp)/(EPS), 2*(f(x0)-np.real(cmp))/(EPS**2)
+
+    @abstractmethod
+    def step(self):
+        pass
+    @abstractmethod
+    def plot_iter(self):
+        pass
+
+class SGD(Optimizer):
+    def __init__(self, lr=0.01, MAX_ITERS = None, root = "output"):
+        super().__init__(lr = lr, MAX_ITERS = MAX_ITERS, root = root)
+    def step(self):
+        prev = self.x_c
+        self.x_c = self.x_c-self.lr*self.dfx_c
+        self.dfx_c, dfx2 = self.diff(self.f, self.x_c)
+        return np.abs(self.dfx_c)>self.stop_EPS and self.x_c>=self.xl and self.x_c <= self.xr
     def plot_iter(self):
         self.plot(self.x, self.f(self.x), color='green')
         xc = self.x_c
         fxc = self.f(xc)
         dfxc = self.dfx_c
-        # print("CURRENT", xc, fxc, dfxc)
         self.scatter(xc, fxc, color = 'orange')
         self.draw_line(xc, fxc, dfxc)
-
-class SGD(Optimizer):
-    def __init__(self):
-        super().__init__()
-    def step(self):
-        prev = self.x_c
-        self.x_c = self.x_c-self.lr*self.dfx_c
-        self.dfx_c, dfx2 = self.diff(self.f, self.x_c)
-        return np.abs(self.dfx_c)>self.stop_EPS
-    # def plot_iter(self):
-    #     pass
 
 
 class LinearSearch(Optimizer):
