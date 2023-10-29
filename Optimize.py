@@ -64,7 +64,7 @@ class Optimizer(Plotter):
         self.write = write
         self.lr = lr
         self.x0 = None
-        self.cur = None
+        self.x_c = None
         self.dfx_c = None
         self.f = None
         self.stop_EPS = 1e-3
@@ -75,6 +75,7 @@ class Optimizer(Plotter):
         self.xl = xl
         self.xr = xr
         x = np.linspace(xl,xr,self.RESOLUTION)
+        self.minstep = (xr-xl)/self.RESOLUTION
         if x0 is None:
             x0 = np.random.choice(x)
         if self.MAX_ITERS is None:
@@ -83,18 +84,23 @@ class Optimizer(Plotter):
         self.x_c = x0
         self.set_data(x, f)
         self.dfx_c , self.df2x_c= self.diff(self.f, self.x_c)
-        
+    def before_loop(self):
+        pass  
+    def first_plot(self):
+        pass
     def run(self, f, xl, xr, x0 = None, ALGORITHM = 'SGD'):
         self._pre_loop(f, xl, xr, x0)
+        self.before_loop()
         cond = True
         k = 1
+        self.iter = k
         if self.write:
             fig = plt.figure()
             plt.title(f"Learning rate: {self.lr}")
+            self.first_plot()
             writer = PillowWriter(fps = 5)
             with writer.saving(fig, f"{self.root}/plot{self.lr}.gif",self.MAX_ITERS):
                 while cond and k<self.MAX_ITERS:
-                    # fig = plt.figure()
                     self.plot_iter()
                     plt.title(f"Learning rate: {self.lr}")
                     writer.grab_frame()
@@ -105,9 +111,11 @@ class Optimizer(Plotter):
             while cond and k<self.MAX_ITERS:
                 cond = self.step()
                 k+=1
-
+        self.plot_after_loop()
         # self.x_star = self.cur
         # self.y_star = self.f(self.x_star)
+    def plot_after_loop(self):
+        pass
     def diff(self, f, x0):
         EPS = 1e-6
         cmp = f(x0+EPS*1j)
@@ -142,9 +150,36 @@ class LinearSearch(Optimizer):
         pass
 
 class Bracketer(Optimizer):
-    pass
-
-
+    def __init__(self, K, lr=0.01, MAX_ITERS = None, root = "output"):
+        super().__init__(lr = lr, MAX_ITERS = MAX_ITERS, root = root)
+        self.K = K
+        self.S = 1
+        
+    def step(self):
+        prev = self.x_c
+        self.S *= self.K
+        self.x_c = self.x_c + self.sign*self.S
+        fprev = self.f(prev)
+        fxc = self.f(self.x_c)
+        return self.f(self.x_c)<self.f(prev) and self.x_c>=self.xl and self.x_c <= self.xr
+    def before_loop(self):
+        dfx0, df2x0 = self.diff(self.f, self.x0)
+        self.sign = -np.sign(dfx0)
+        self.S = self.minstep
+    def draw_vertical_line(self,x):
+        self.plot(np.array([x,x]), np.array([self.f(x),self.YLMAX]), color= 'blue')
+    def plot_iter(self):
+        self.plot(self.x, self.f(self.x), color='green')
+        self.scatter(self.x0, self.f(self.x0), color = 'red')
+        self.draw_vertical_line(self.x0)
+        xc = self.x_c
+        fxc = self.f(xc)
+        dfxc = self.dfx_c
+        self.scatter(xc, fxc, color = 'orange')
+        self.draw_vertical_line(xc)
+    def plot_after_loop(self):
+        self.plot_iter()
     
+        
 
 
