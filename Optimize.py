@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.animation import PillowWriter
+from abc import abstractmethod
 class Line:
     def __init__(self):
         self.m = None
@@ -66,7 +67,10 @@ class Optimizer(Plotter):
         self.f = None
         self.stop_EPS = 1e-3
         self.MAX_ITERS= MAX_ITERS
-    def run(self, f, x, x0 = None, ALGORITHM = 'SGD'):
+        self.RESOLUTION = 100
+
+    def _pre_loop(self,f,xl,xr,x0):
+        x = np.linspace(xl,xr,self.RESOLUTION)
         if x0 is None:
             x0 = np.random.choice(x)
         if self.MAX_ITERS is None:
@@ -75,6 +79,9 @@ class Optimizer(Plotter):
         self.x_c = x0
         self.set_data(x, f)
         self.dfx_c , dfx2= self.diff(self.f, self.x_c)
+        
+    def run(self, f, xl, xr, x0 = None, ALGORITHM = 'SGD'):
+        self._pre_loop(f, xl, xr, x0)
         fig = plt.figure()
         plt.title(f"Learning rate: {self.lr}")
         cond = True
@@ -87,15 +94,12 @@ class Optimizer(Plotter):
                 plt.title(f"Learning rate: {self.lr}")
                 writer.grab_frame()
                 plt.clf()
-                
                 cond = self.step()
                 k+=1
 
+    @abstractmethod
     def step(self):
-        prev = self.x_c
-        self.x_c = self.x_c-self.lr*self.dfx_c
-        self.dfx_c, dfx2 = self.diff(self.f, self.x_c)
-        return np.abs(self.dfx_c)>self.stop_EPS
+        pass
     def diff(self, f, x0):
         EPS = 1e-6
         cmp = f(x0+EPS*1j)
@@ -109,7 +113,24 @@ class Optimizer(Plotter):
         self.scatter(xc, fxc, color = 'orange')
         self.draw_line(xc, fxc, dfxc)
 
-    
+class SGD(Optimizer):
+    def __init__(self):
+        super().__init__()
+    def step(self):
+        prev = self.x_c
+        self.x_c = self.x_c-self.lr*self.dfx_c
+        self.dfx_c, dfx2 = self.diff(self.f, self.x_c)
+        return np.abs(self.dfx_c)>self.stop_EPS
+    # def plot_iter(self):
+    #     pass
+
+
+class LinearSearch(Optimizer):
+    def __init__(self):
+        pass
+
+class Bracketer(Optimizer):
+    pass
 
 
     
