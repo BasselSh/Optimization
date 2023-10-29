@@ -15,5 +15,5 @@ x0 = np.random.choice(x)
 #     optim = SGD(lr = lr, root = "SGD_output")
 #     optim.run(f, xl,xr, x0)
 
-optim = Bracketer(K = 2,lr = 0.01, root = "Bracketer")
+optim = Bracketer(K = 1.2,lr = 0.01, root = "Bracketer")
 optim.run(f,xl,xr,x0)

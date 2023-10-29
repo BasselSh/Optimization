@@ -91,30 +91,36 @@ class Optimizer(Plotter):
     def run(self, f, xl, xr, x0 = None, ALGORITHM = 'SGD'):
         self._pre_loop(f, xl, xr, x0)
         self.before_loop()
+        title = f"step speed: {self.K}"
         cond = True
         k = 1
         self.iter = k
         if self.write:
             fig = plt.figure()
-            plt.title(f"Learning rate: {self.lr}")
+            plt.title(title)
             self.first_plot()
             writer = PillowWriter(fps = 5)
             with writer.saving(fig, f"{self.root}/plot{self.lr}.gif",self.MAX_ITERS):
                 while cond and k<self.MAX_ITERS:
                     self.plot_iter()
-                    plt.title(f"Learning rate: {self.lr}")
+                    plt.title(title)
                     writer.grab_frame()
                     plt.clf()
                     cond = self.step()
                     k+=1
+                self.final_plot()
+                plt.title(title)
+                for i in range(5):
+                    writer.grab_frame()
+
         else:
             while cond and k<self.MAX_ITERS:
                 cond = self.step()
                 k+=1
-        self.plot_after_loop()
+        
         # self.x_star = self.cur
         # self.y_star = self.f(self.x_star)
-    def plot_after_loop(self):
+    def final_plot(self):
         pass
     def diff(self, f, x0):
         EPS = 1e-6
@@ -168,6 +174,7 @@ class Bracketer(Optimizer):
         self.S = self.minstep
     def draw_vertical_line(self,x):
         self.plot(np.array([x,x]), np.array([self.f(x),self.YLMAX]), color= 'blue')
+
     def plot_iter(self):
         self.plot(self.x, self.f(self.x), color='green')
         self.scatter(self.x0, self.f(self.x0), color = 'red')
@@ -177,8 +184,17 @@ class Bracketer(Optimizer):
         dfxc = self.dfx_c
         self.scatter(xc, fxc, color = 'orange')
         self.draw_vertical_line(xc)
-    def plot_after_loop(self):
-        self.plot_iter()
+
+    def final_plot(self):
+        self.plot(self.x, self.f(self.x), color='green')
+        self.scatter(self.x0, self.f(self.x0), color = 'red')
+        xc = self.x_c
+        fxc = self.f(xc)
+        dfxc = self.dfx_c
+        self.scatter(xc, fxc, color = 'orange')
+        xout = np.linspace(self.x0, self.x_c, self.RESOLUTION)
+        fout = self.f(xout)
+        self.plot(xout, fout, color='red')
     
         
 
